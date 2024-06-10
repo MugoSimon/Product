@@ -34,40 +34,25 @@ public class ProductService {
 
     public EntityResponse<Product> createProduct(Product product) {
         EntityResponse<Product> entityResponse = new EntityResponse<>();
+
         try {
             log.info("====> create product <====");
 
-            Coupon coupon = null;
-            try {
-                // Attempt to retrieve the coupon using the coupon code from the product
-                ResponseEntity<String> response = restTemplate.getForEntity(couponServiceUrl + product.getCouponCode(), String.class);
-                log.info("Raw response: " + response.getBody());
-
-                ObjectMapper mapper = new ObjectMapper();
-                CouponResponse couponResponse = mapper.readValue(response.getBody(), CouponResponse.class);
-
-                coupon = couponResponse.getEntity();
-
-                if (coupon != null) {
-                    log.info("Coupon retrieved successfully: " + coupon.toString());
-                } else {
-                    log.warn("Coupon retrieval returned null");
-                }
-            } catch (RestClientException | IOException e) {
-                // Log a warning if the coupon service is unavailable or the coupon is not found
-                log.warn("Coupon not found or service unavailable: " + e.getMessage());
-            }
+            // Attempt to retrieve the coupon using the coupon code from the product
+            Optional<Coupon> couponOptional = fetchCouponByCode(product.getCouponCode());
 
             // Check if a product with the same name already exists
-            productRepository.findByProductName(product.getProductName()).ifPresent(existingProduct -> {
-                log.error("Product already exists: " + product.getProductName());
+            Optional<Product> existingProduct = productRepository.findByProductName(product.getProductName());
+            if (existingProduct.isPresent()) {
+                log.error("Product already exists: {}", product.getProductName());
                 throw new IllegalArgumentException("Product already exists");
-            });
+            }
 
             // Apply the coupon discount if a valid coupon was retrieved
-            if (coupon != null && coupon.getDiscount() != null) {
+            if (couponOptional.isPresent() && couponOptional.get().getDiscount() != null) {
+                Coupon coupon = couponOptional.get();
                 product.setProductPrice(product.getProductPrice().subtract(coupon.getDiscount()));
-                log.info("Coupon applied: Discount of " + coupon.getDiscount() + " applied to the product price");
+                log.info("Coupon applied: Discount of {} applied to the product price", coupon.getDiscount());
             } else {
                 log.info("No valid coupon applied");
             }
@@ -75,24 +60,24 @@ public class ProductService {
             // Save the product to the repository
             Product savedProduct = productRepository.save(product);
             entityResponse.setEntity(savedProduct);
-            log.info("====> product created: " + savedProduct.getProductName());
+            log.info("====> product created: {}", savedProduct.getProductName());
             entityResponse.setMessage(HttpStatus.CREATED.getReasonPhrase());
             entityResponse.setStatusCode(HttpStatus.CREATED.value());
             return entityResponse;
 
         } catch (IllegalArgumentException e) {
             // Handle case where product already exists
-            log.error("Error creating product: " + e.getMessage());
+            log.error("Error creating product: {}", e.getMessage());
             entityResponse.setMessage(HttpStatus.BAD_REQUEST.getReasonPhrase());
             entityResponse.setStatusCode(HttpStatus.BAD_REQUEST.value());
         } catch (DataAccessException e) {
             // Handle database-related exceptions
-            log.error("Database error while creating product: " + e.getMessage());
+            log.error("Database error while creating product: {}", e.getMessage());
             entityResponse.setMessage(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
             entityResponse.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
         } catch (Exception e) {
             // Handle any other unexpected exceptions
-            log.error("Unexpected error while creating product: " + e.getMessage());
+            log.error("Unexpected error while creating product: {}", e.getMessage());
             entityResponse.setMessage(HttpStatus.EXPECTATION_FAILED.getReasonPhrase());
             entityResponse.setStatusCode(HttpStatus.EXPECTATION_FAILED.value());
         }
@@ -100,6 +85,26 @@ public class ProductService {
         return entityResponse;
     }
 
+    private Optional<Coupon> fetchCouponByCode(String couponCode) {
+        try {
+            log.info("====> fetch coupon by code: {}", couponCode);
+            ResponseEntity<CouponResponse> response = restTemplate.getForEntity(couponServiceUrl + couponCode, CouponResponse.class);
+            CouponResponse couponResponse = response.getBody();
+
+            if (couponResponse != null && couponResponse.getEntity() != null) {
+                return Optional.of(couponResponse.getEntity());
+            } else {
+                log.warn("Coupon not found or service unavailable");
+                return Optional.empty();
+            }
+        } catch (Exception ex) {
+            log.error(">+++++> error while fetching coupon <++++++<: {}", ex.getLocalizedMessage());
+            ex.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    // Fetch
     public EntityResponse fetchProductById(Long id) {
         EntityResponse entityResponse = new EntityResponse<>();
 
@@ -128,6 +133,7 @@ public class ProductService {
         }
     }
 
+    // Fetch all products
     public EntityResponse fetchAllProducts() {
         EntityResponse entityResponse = new EntityResponse<>();
         try {
@@ -153,6 +159,7 @@ public class ProductService {
         }
     }
 
+    // Update
     public EntityResponse updateProduct(Product updatedProduct) {
         EntityResponse entityResponse = new EntityResponse<>();
 
@@ -190,6 +197,7 @@ public class ProductService {
         }
     }
 
+    // Delete
     public EntityResponse deleteProduct(Long id) {
         EntityResponse entityResponse = new EntityResponse<>();
 

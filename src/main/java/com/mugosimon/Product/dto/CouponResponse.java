@@ -12,5 +12,5 @@ import lombok.ToString;
 public class CouponResponse {
     private String message;
     private Coupon entity;
-    private int statusCode;
+    private Integer statusCode;
 }
