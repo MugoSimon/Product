@@ -96,6 +96,7 @@ public class ProductService {
             } else {
                 log.warn("Coupon not found or service unavailable");
                 return Optional.empty();
+                //
             }
         } catch (Exception ex) {
             log.error(">+++++> error while fetching coupon <++++++<: {}", ex.getLocalizedMessage());
