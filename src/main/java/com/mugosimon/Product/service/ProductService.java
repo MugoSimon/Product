@@ -1,6 +1,5 @@
 package com.mugosimon.Product.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mugosimon.Product.dto.Coupon;
 import com.mugosimon.Product.dto.CouponResponse;
 import com.mugosimon.Product.model.Product;
@@ -13,10 +12,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,6 +49,7 @@ public class ProductService {
             if (couponOptional.isPresent() && couponOptional.get().getDiscount() != null) {
                 Coupon coupon = couponOptional.get();
                 product.setProductPrice(product.getProductPrice().subtract(coupon.getDiscount()));
+                product.setCouponCode(coupon.getCode());
                 log.info("Coupon applied: Discount of {} applied to the product price", coupon.getDiscount());
             } else {
                 log.info("No valid coupon applied");
